@@ -1,0 +1,41 @@
+html, body {
+  background: #fff;
+  color: #004;
+}
+
+button {
+  color: #004;
+}
+
+button:disabled {
+  color: #aaa;
+}
+
+h1 {
+  font-size: 120%;
+}
+
+fieldset {
+  border-radius: 0.5em;
+}
+
+fieldset {
+  word-break: break-all;
+}
+
+dd {
+  min-height: 1.2em;
+}
+
+#status {
+  min-height: 1.2em;
+  color: #800;
+}
+
+#status.no-sw::before {
+  content: "Service Worker not available";
+}
+
+#status.no-push::before {
+  content: "Push API not available";
+}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1">
+    <title>Web Push Test</title>
+    <link rel="stylesheet" href="style/webpush.css">
+    <script src="js/webpush.js"></script>
+  </head>
+  <body>
+    <h1>Sample Page for Web Push</h1>
+    <fieldset>
+      <legend>Subscribe Push Notification</legend>
+      <button id="subscribe" disabled>subscribe</button>
+    <div id="status"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Request Push Notification</legend>
+      <label for="message">message</label> <input id="message" placeholder="type your message" size="30" disabled><br>
+      <button id="push" disabled>push</button>
+    </fieldset>
+    <fieldset>
+      <legend>Push Subscription Detail</legend>
+      <dl>
+        <dt>endpoint</dt>
+        <dd id="endpoint"></dd>
+        <dt>key</dt>
+        <dd id="key"></dd>
+        <dt>authentication secret</dt>
+        <dd id="auth"></dd>
+      </dl>
+    </fieldset>
+  </body>
+</html>
