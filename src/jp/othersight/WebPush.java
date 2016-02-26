@@ -277,6 +277,8 @@ public class WebPush {
             "keyid=p256dh;salt=" + Base64.getUrlEncoder().encodeToString(salt));
         conn.setRequestProperty("Content-Encoding", (version == 1) ? encoding01 : encoding00);
       }
+      if(endpoint.startsWith(GCM_WEBPUSH_ENDPOINT) || endpoint.startsWith(GCM_URL))
+        conn.setRequestProperty("Authorization",  "key=" + GCM_SERVER_KEY);
       BufferedOutputStream out = new BufferedOutputStream(conn.getOutputStream());
       if(encrypted)
         out.write(output.array());
@@ -343,7 +345,7 @@ public class WebPush {
         }
         reader.close();
         conn.disconnect();
-        System.out.println("======= GCM Push Failed =======");
+        System.out.println("======= GCM Push Sent =======");
         System.out.println(response);
       }
       else {
@@ -355,7 +357,7 @@ public class WebPush {
         }
         reader.close();
         conn.disconnect();
-        System.out.println("======= GCM Push Sent =======");
+        System.out.println("======= GCM Push Failed =======");
         System.out.println(response);
       }
     } catch (MalformedURLException e) {
