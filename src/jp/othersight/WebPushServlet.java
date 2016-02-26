@@ -3,6 +3,7 @@ package jp.othersight;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.security.Security;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -10,6 +11,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -20,6 +22,10 @@ public class WebPushServlet extends HttpServlet {
    * 
    */
   private static final long serialVersionUID = 2888859180954573814L;
+
+  public WebPushServlet() {
+    Security.addProvider(new BouncyCastleProvider());
+  }
 
   private String getString(JSONObject json, String key) {
     String str = json.optString(key);
@@ -45,6 +51,7 @@ public class WebPushServlet extends HttpServlet {
       String key = getString(json, "key");
       String auth = getString(json, "auth");
       String message = getString(json, "message");
+
       if("".equals(endpoint)) {
         error(resp);
         return;

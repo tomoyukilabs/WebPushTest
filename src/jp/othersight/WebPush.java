@@ -200,7 +200,7 @@ public class WebPush {
         ByteBuffer context = null;
         if(auth != null) {
           byte[] tmpPrk = extractHKDF(Base64.getUrlDecoder().decode(auth), secretKey.getEncoded());
-          ByteBuffer bufferAuth = ByteBuffer.allocate(infoAuth.length() + 1).put("".getBytes()).put((byte)0x00);
+          ByteBuffer bufferAuth = ByteBuffer.allocate(infoAuth.length() + 1).put(infoAuth.getBytes()).put((byte)0x00);
           bufferAuth.rewind();
           ikm = expandHKDF(tmpPrk, bufferAuth, authLength);
           byte[] recipient = userPublicKey.getQ().getEncoded(false);

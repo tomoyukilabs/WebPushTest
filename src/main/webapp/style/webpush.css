@@ -1,6 +1,7 @@
 html, body {
   background: #fff;
   color: #004;
+  font-family: sans-serif;
 }
 
 button {
@@ -25,6 +26,14 @@ fieldset {
 
 dd {
   min-height: 1.2em;
+}
+
+#subscribe::before {
+  content: "subscribe";
+}
+
+#subscribe.subscribing::before {
+  content: "unsubscribe";
 }
 
 #status {

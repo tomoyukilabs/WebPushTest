@@ -10,6 +10,6 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000040",
-  "gcm_sender_id": "", /* set your API Project number of Google APIs */
-  "gcm_user_visible_only": true /* for compatibility with Chrome 42/43 */
+  "gcm_sender_id": "",
+  "gcm_user_visible_only": true
 }
