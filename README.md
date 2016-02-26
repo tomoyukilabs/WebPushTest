@@ -7,3 +7,6 @@ Before buidling this with Maven, the following parameters must be set to your ow
 
 * `GCM_SERVER_KEY` in `src/jp/othersight/WebPush.java` - your GCM API key
 * `gcm_sender_id` in `src/main/webapp/manifest.json` - your Google API Project number
+
+## Demo Site
+Please try https://labs.othersight.jp/webpushtest/
