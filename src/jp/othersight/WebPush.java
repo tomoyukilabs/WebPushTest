@@ -61,7 +61,7 @@ public class WebPush {
   private static final int recordSize = 4096;
 
   public static final String GCM_URL = "https://android.googleapis.com/gcm/send";
-  public static final String GCM_WEBPUSH_ENDPOINT = "https://jmt17.google.com/gcm/demo-webpush-00";
+  public static final String GCM_WEBPUSH_ENDPOINT = "https://gcm-http.googleapis.com/gcm";
   public static final String GCM_SERVER_KEY = ""; // set your Google Cloud Messaging API key
 
   private static byte[] extractHKDF(byte[] salt, byte[] key) {
