@@ -51,6 +51,7 @@ public class WebPushServlet extends HttpServlet {
       String key = getString(json, "key");
       String auth = getString(json, "auth");
       String message = getString(json, "message");
+      int version = json.optInt("version", 0);
 
       if("".equals(endpoint)) {
         error(resp);
@@ -70,11 +71,11 @@ public class WebPushServlet extends HttpServlet {
               auth,
               endpoint.replaceAll("^" + WebPush.GCM_URL, WebPush.GCM_WEBPUSH_ENDPOINT),
               message,
-              1);
+              version);
       }
       // Firefox 44+: Web Push via Mozilla's AutoPush Endpoint
       else
-        WebPush.sendWebPush(key, auth, endpoint, message, 0);
+        WebPush.sendWebPush(key, auth, endpoint, message, version);
 
       resp.setStatus(HttpServletResponse.SC_OK);
     } catch (JSONException e) {

@@ -111,6 +111,11 @@ function requestPushNotification() {
       arg.key = encodeBase64URL(subscription.getKey('p256dh'));
       try {
         arg.auth = encodeBase64URL(subscription.getKey('auth'));
+        var chrome = navigator.userAgent.match(/^.*Chrome\/(\d+).*$/);
+        if(chrome && (chrome.length > 1) && (parseInt(chrome[1]) < 50)) {
+          chrome = null;
+        }
+        arg.version = chrome ? 0 : 1;
       } catch (e) {
       }
     }
