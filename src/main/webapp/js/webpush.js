@@ -115,7 +115,7 @@ function requestPushNotification() {
         if(chrome && (chrome.length > 1) && (parseInt(chrome[1]) < 50)) {
           chrome = null;
         }
-        arg.version = chrome ? 0 : 1;
+        arg.version = chrome ? 1 : 0;
       } catch (e) {
       }
     }
