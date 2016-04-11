@@ -111,7 +111,7 @@ function requestPushNotification() {
       arg.key = encodeBase64URL(subscription.getKey('p256dh'));
       try {
         arg.auth = encodeBase64URL(subscription.getKey('auth'));
-        arg.version = navigator.userAgent.match(/Firefox\/(\d+)/) ? ((parseInt(RegExp.$1) >= 47) ? 1 : 0) :
+        arg.version = navigator.userAgent.match(/Firefox\/(\d+)/) ? ((parseInt(RegExp.$1) >= 46) ? 1 : 0) :
           ((navigator.userAgent.match(/Chrome\/(\d+)/) ? ((parseInt(RegExp.$1) >= 50) ? 1 : 0) : 0))
       } catch (e) {
       }
