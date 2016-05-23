@@ -52,7 +52,7 @@ public class WebPush {
   private static final String encoding01 = "aesgcm";
   private static final String infoAuth = "Content-Encoding: auth";
   private static final String infoCEK00 = "Content-Encoding: " + encoding00; // draft-ietf-httpbis-encryption-encoding-00
-  private static final String infoCEK01 = "Content-Encoding: " + encoding01; // draft on GitHub (IETF HTTP WG)
+  private static final String infoCEK01 = "Content-Encoding: " + encoding01; // draft-ietf-httpbis-encryption-encoding-01
   private static final String infoNonce = "Content-Encoding: nonce";
   private static final int authLength = 32;
   private static final int tagLength = 16;
@@ -143,7 +143,7 @@ public class WebPush {
   }
 
   // conforms to draft-ietf-httpbis-encryption-encoding-00, if version == 0
-  // conforms to the latest version on GitHub, if version == 1
+  // conforms to draft-ietf-httpbis-encryption-encoding-01, if version == 1
   public static void sendWebPush(String key, String auth, String endpoint, String payload, int version) {
     boolean encrypted = false;
     ByteBuffer output = null;
@@ -277,6 +277,7 @@ public class WebPush {
             "keyid=p256dh;salt=" + Base64.getUrlEncoder().encodeToString(salt));
         conn.setRequestProperty("Content-Encoding", (version == 1) ? encoding01 : encoding00);
       }
+      conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
       if(endpoint.startsWith(GCM_WEBPUSH_ENDPOINT) || endpoint.startsWith(GCM_URL))
         conn.setRequestProperty("Authorization",  "key=" + GCM_SERVER_KEY);
       BufferedOutputStream out = new BufferedOutputStream(conn.getOutputStream());
