@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -19,6 +20,8 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
@@ -34,16 +37,20 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.jce.ECNamedCurveTable;
+import org.bouncycastle.jce.interfaces.ECPrivateKey;
 import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
-
+import org.bouncycastle.util.encoders.Hex;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class WebPush {
   private static final String keyAlgorithm = "ECDH";
   private static final String keyAlgorithmProvider = "BC";
+  private static final String signAlgorithm = "SHA256withECDSA";
+  private static final String keyCurve = "prime256v1";
   private static final String encryptionAlgorithm = "AES";
   private static final String curveName = "P-256";
   private static final String hashAlgorithm = "hmacSHA256";
@@ -142,9 +149,48 @@ public class WebPush {
     }
   }
 
-  // conforms to draft-ietf-httpbis-encryption-encoding-00, if version == 0
-  // conforms to draft-ietf-httpbis-encryption-encoding-01, if version == 1
+  public static KeyPair generateKeyPair(String type) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
+    ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance(type, keyAlgorithmProvider);
+    keyGen.initialize(param);
+    return keyGen.generateKeyPair();
+  }
+
+  public static ECPublicKey importPublicKey(String type, String x, String y) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
+    ECPublicKeySpec keySpec = new ECPublicKeySpec(
+        param.getCurve().validatePoint(
+            new BigInteger(1, Base64.getUrlDecoder().decode(x)),
+            new BigInteger(1, Base64.getUrlDecoder().decode(y))),
+        param);
+    KeyFactory keyFactory = KeyFactory.getInstance(type, keyAlgorithmProvider);
+    return (ECPublicKey) keyFactory.generatePublic(keySpec);
+  }
+
+  public static ECPublicKey importPublicKey(String type, String q) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
+    ECPublicKeySpec keySpec = new ECPublicKeySpec(
+        param.getCurve().decodePoint(Base64.getUrlDecoder().decode(q)),
+        param);
+    KeyFactory keyFactory = KeyFactory.getInstance(type, keyAlgorithmProvider);
+    return (ECPublicKey) keyFactory.generatePublic(keySpec);
+  }
+
+  public static ECPrivateKey importPrivateKey(String type, String d) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
+    ECPrivateKeySpec keySpec = new ECPrivateKeySpec(
+        new BigInteger(1, (Base64.getUrlDecoder().decode(d))),
+        param);
+    KeyFactory keyFactory = KeyFactory.getInstance(type, keyAlgorithmProvider);
+    return (ECPrivateKey) keyFactory.generatePrivate(keySpec);
+  }
+
   public static void sendWebPush(String key, String auth, String endpoint, String payload, int version) {
+    sendWebPush(key, auth, endpoint, payload, version, null);
+  }
+
+  // conforms to draft-ietf-httpbis-encryption-encoding-(version)
+  public static void sendWebPush(String key, String auth, String endpoint, String payload, int version, JSONObject info) {
     boolean encrypted = false;
     ByteBuffer output = null;
     SecretKey secretKey = null;
@@ -167,21 +213,14 @@ public class WebPush {
       
       try {
         // local key pair
-        ECParameterSpec param = ECNamedCurveTable.getParameterSpec("prime256v1");
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance(keyAlgorithm, keyAlgorithmProvider);
-        keyGen.initialize(param);
-        KeyPair localKeys = keyGen.generateKeyPair();
+        KeyPair localKeys = generateKeyPair(keyAlgorithm);
         localPublicKey = (ECPublicKey)localKeys.getPublic();
 
         // user public key
-        ECPublicKeySpec userPublicKeySpec = new ECPublicKeySpec(
-            param.getCurve().decodePoint(Base64.getUrlDecoder().decode(key)),
-            param);
-        KeyFactory keyFactory = KeyFactory.getInstance("ECDH", keyAlgorithmProvider);
-        userPublicKey = (ECPublicKey) keyFactory.generatePublic(userPublicKeySpec);
+        userPublicKey = importPublicKey(keyAlgorithm, key);
 
         // key agreement
-        KeyAgreement keyAgree = KeyAgreement.getInstance("ECDH", keyAlgorithmProvider);
+        KeyAgreement keyAgree = KeyAgreement.getInstance(keyAlgorithm, keyAlgorithmProvider);
         keyAgree.init(localKeys.getPrivate());
         keyAgree.doPhase(userPublicKey, true);
         secretKey = keyAgree.generateSecret(encryptionAlgorithm);
@@ -272,14 +311,78 @@ public class WebPush {
         conn.setRequestProperty("Content-Type", "application/octet-stream");
         conn.setRequestProperty("Content-Length", String.format("%d", output.capacity()));
         conn.setRequestProperty((auth != null) ? "Crypto-Key" : "Encryption-Key",
-            "keyid=p256dh;dh=" + Base64.getUrlEncoder().encodeToString(localPublicKey.getQ().getEncoded(false)));
+            "keyid=p256dh;dh=" + Base64.getUrlEncoder().encodeToString(localPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
         conn.setRequestProperty("Encryption",
-            "keyid=p256dh;salt=" + Base64.getUrlEncoder().encodeToString(salt));
+            "keyid=p256dh;salt=" + Base64.getUrlEncoder().encodeToString(salt).replaceAll("=+$", ""));
         conn.setRequestProperty("Content-Encoding", (version == 1) ? encoding01 : encoding00);
       }
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
+
       if(endpoint.startsWith(GCM_WEBPUSH_ENDPOINT) || endpoint.startsWith(GCM_URL))
         conn.setRequestProperty("Authorization",  "key=" + GCM_SERVER_KEY);
+
+      if(info != null) {
+        // JWT Header
+        JSONObject h = new JSONObject();
+        h.put("typ", "JWT");
+        h.put("alg", "ES256");
+        // JWT Payload
+        JSONObject p = new JSONObject();
+        String aud = info.optString("aud");
+        String sub = info.optString("sub");
+        if(aud != null)
+          p.put("aud", aud);
+        if(sub != null)
+          p.put("sub", sub);
+        long cur = System.currentTimeMillis() / 1000;
+        p.put("exp", cur + 12*60*60); // 12 hours
+        // p.put("iat", cur);
+        String claim = Base64.getUrlEncoder().encodeToString(h.toString().getBytes()).replaceAll("=+$", "")
+            + "." + Base64.getUrlEncoder().encodeToString(p.toString().getBytes()).replaceAll("=+$", "");
+
+        // create a signature by SHA-256 with ECDSA
+        try {
+          Signature signer = Signature.getInstance(signAlgorithm, keyAlgorithmProvider);
+          signer.initSign(WebPushServlet.privateKey);
+          signer.update(claim.getBytes());
+
+          // convert ASN.1 to JWS (i.e. concatenated R and S raw bytes)
+          int pos;
+          ByteBuffer asn1 = ByteBuffer.wrap(signer.sign());
+          ByteBuffer signature = ByteBuffer.allocate(64);
+
+          asn1.position(3);
+          int l1 = (int) asn1.get();
+          
+          pos = 4 + l1 - 32;
+          asn1.limit(pos + 32);
+          asn1.position(pos);
+          signature.put(asn1);
+          pos += 33;
+          asn1.limit(asn1.capacity());
+          asn1.position(pos);
+          int l2 = (int) asn1.get();
+          pos += 1 + l2 - 32;
+          asn1.limit(pos + 32);
+          asn1.position(pos);
+          signature.put(asn1);
+
+          System.out.println(Hex.toHexString(asn1.array()));
+          System.out.println(Hex.toHexString(signature.array()));
+
+          conn.setRequestProperty(
+              "Crypto-Key",
+              conn.getRequestProperty("Crypto-Key") + ";p256ecdsa="
+              + Base64.getUrlEncoder().encodeToString(WebPushServlet.publicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
+          conn.setRequestProperty(
+              "Authorization",
+              "Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
+          System.out.println("Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidKeyException | SignatureException e) {
+          e.printStackTrace();
+        }
+      }
+
       BufferedOutputStream out = new BufferedOutputStream(conn.getOutputStream());
       if(encrypted)
         out.write(output.array());

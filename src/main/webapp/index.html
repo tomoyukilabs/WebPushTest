@@ -5,7 +5,6 @@
     <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1">
     <title>Web Push Test</title>
     <link rel="stylesheet" href="style/webpush.css">
-    <link rel="manifest" href="manifest.json">
     <script src="js/webpush.js"></script>
   </head>
   <body>
@@ -13,6 +12,11 @@
     <fieldset>
       <legend>Subscribe Push Notification</legend>
       <button id="subscribe" disabled></button>
+      <fieldset id="authtype">
+        <legend>Push Server Authentication</legend>
+        <input type="radio" name="authtype" id="authvapid" value="vapid" checked><label for="authvapid">use VAPID</label>
+        <input type="radio" name="authtype" id="authgcm" value="gcm"><label for="authgcm">use GCM sender ID</label>
+      </fieldset>
     <div id="status"></div>
     </fieldset>
     <fieldset>

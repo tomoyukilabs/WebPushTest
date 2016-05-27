@@ -48,3 +48,7 @@ dd {
 #status.no-push::before {
   content: "Push API not available";
 }
+
+#status.subscribe-error::before {
+	content: attr(data-error);
+}

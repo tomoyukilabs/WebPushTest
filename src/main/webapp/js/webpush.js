@@ -1,15 +1,28 @@
-var _ = function(id) { return document.getElementById(id); }
+'use strict';
 
-var subscription = null;
+let _ = function(id) { return document.getElementById(id); }
+
+let subscription = null;
+let authType = 'vapid';
+let serverKey = null;
 
 function encodeBase64URL(buffer) {
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_');
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeBase64URL(str) {
+  let dec = atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
+  let buffer = new Uint8Array(dec.length);
+  for(let i = 0 ; i < dec.length ; i++)
+    buffer[i] = dec.charCodeAt(i);
+  return buffer;
 }
 
 function enablePushRequest(sub) {
   subscription = sub;
   _('subscribe').classList.add('subscribing');
   _('push').disabled = false;
+  _('authtype').disabled = true;
   _('endpoint').textContent = subscription.endpoint;
   if('getKey' in subscription) {
     _('message').disabled = false;
@@ -26,6 +39,7 @@ function disablePushRequest() {
   _('message').disabled = true;
   _('message').value = '';
   _('push').disabled = true;
+  _('authtype').disabled = false;
   _('endpoint').textContent = '';
   _('key').textContent = '';
   _('auth').textContent = '';
@@ -40,6 +54,8 @@ function requestPushUnsubcription() {
 }
 
 function getSubscription(sub) {
+  delete _('status').dataset.error;
+  _('status').classList.remove('subscribe-error');
   if(sub) {
     enablePushRequest(sub);
   }
@@ -48,16 +64,24 @@ function getSubscription(sub) {
   }
 }
 
+function errorSubscription(err) {
+  _('status').dataset.error = err;
+  _('status').classList.add('subscribe-error');
+}
+
 function requestPushSubscription(registration) {
-  return registration.pushManager.subscribe({
+  let opt = {
     userVisible: true, // for Chrome 42-44
     userVisibleOnly: true
-  }).then(getSubscription);
+  };
+  if(authType === 'vapid')
+    opt.applicationServerKey = serverKey;
+  return registration.pushManager.subscribe(opt).then(getSubscription, errorSubscription);
 }
 
 function checkPushPermission(evt) {
-  var state = evt.state || evt.status;
-  if(state !== 'deined')
+  let state = evt.state || evt.status;
+  if(state !== 'denied')
     navigator.serviceWorker.ready.then(requestPushSubscription);
 }
 
@@ -103,9 +127,9 @@ function serviceWorkerReady(registration) {
 
 function requestPushNotification() {
   if(subscription) {
-    var arg = {
+    let arg = {
       endpoint: subscription.endpoint,
-      message: escape(_('message').value)
+      message: _('message').value
     };
     if('getKey' in subscription) {
       arg.key = encodeBase64URL(subscription.getKey('p256dh'));
@@ -116,18 +140,60 @@ function requestPushNotification() {
       } catch (e) {
       }
     }
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', './push');
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify(arg));
+    if(authType === 'vapid') {
+      arg.jwt = {
+        aud: new URL(subscription.endpoint).origin,
+        sub: location.href
+      };
+    }
+    fetch('./push', {
+      method: 'POST',
+      body: JSON.stringify(arg),
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
+}
+
+function setAuthType(evt) {
+  let link;
+  authType = evt.currentTarget.value;
+  localStorage.setItem('authType', authType);
+  switch(authType) {
+  case 'vapid':
+    link = document.querySelector('link[rel="manifest"]');
+    if(link)
+      link.parentNode.removeChild(link);
+    break;
+  case 'gcm':
+    link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = 'manifest.json';
+    document.querySelector('head').appendChild(link);
+    break;
+  }
+}
+
+function setServerKey(key) {
+  serverKey = decodeBase64URL(key);
+  navigator.serviceWorker.ready.then(serviceWorkerReady);
+}
+
+function getServerKey(resp) {
+  return resp.text();
 }
 
 function init() {
   if('serviceWorker' in navigator) {
+    authType = localStorage.getItem('authType');
+    if(authType) {
+      setAuthType({ currentTarget: { value: authType }});
+      _('auth' + authType).checked = true;
+    }
     _('subscribe').addEventListener('click', togglePushSubscription, false);
     _('push').addEventListener('click', requestPushNotification, false);
-    navigator.serviceWorker.ready.then(serviceWorkerReady);
+    _('authvapid').addEventListener('change', setAuthType, false);
+    _('authgcm').addEventListener('change', setAuthType, false);
+    fetch('./push/publicKey').then(getServerKey).then(setServerKey);
     navigator.serviceWorker.register('serviceworker.js');
   }
   else {

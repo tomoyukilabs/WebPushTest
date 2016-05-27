@@ -1,7 +1,7 @@
 function showNotification(body) {
   return self.registration.showNotification('WebPushTest', {
     icon: 'image/icon.png',
-    body: body ? unescape(body) : '(with empty payload)',
+    body: body || '(with empty payload)',
     vibrate: [400,100,400]
   });
 }
