@@ -89,8 +89,18 @@ public class WebPushServlet extends HttpServlet {
     return "".equals(str) ? null : str;
   }
 
-  private void error(HttpServletResponse resp) {
-    resp.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
+  private void error(HttpServletResponse resp, String message) {
+    try {
+      resp.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
+      resp.setContentType("application/json; charset=utf-8");
+      resp.setCharacterEncoding("UTF-8");
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(resp.getOutputStream(), "UTF-8"));
+      writer.write(new JSONObject().put("error", message).toString());
+      writer.flush();
+      writer.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override
@@ -136,19 +146,20 @@ public class WebPushServlet extends HttpServlet {
       int version = json.optInt("version", 0);
 
       if("".equals(endpoint)) {
-        error(resp);
+        error(resp, "empty endpoint");
         return;
       }
 
+      JSONObject result = new JSONObject().put("error", "webpush not invoked");
       // Chrome
       if(endpoint.startsWith(WebPush.GCM_URL)) {
         // Chrome 42-48: GCM
         if((key == null) || (auth == null))
-          WebPush.sendPushViaGoogleCloudMessaging(
+          result = WebPush.sendPushViaGoogleCloudMessaging(
               endpoint.replaceAll("^" + WebPush.GCM_URL + "/", ""));
         // Chrome 49+: Web Push via GCM Server
         else
-          WebPush.sendWebPush(
+          result = WebPush.sendWebPush(
               key,
               auth,
               endpoint.replaceAll("^" + WebPush.GCM_URL, WebPush.GCM_WEBPUSH_ENDPOINT),
@@ -158,12 +169,18 @@ public class WebPushServlet extends HttpServlet {
       }
       // Firefox 44+: Web Push via Mozilla's AutoPush Endpoint
       else
-        WebPush.sendWebPush(key, auth, endpoint, message, version, info);
+        result = WebPush.sendWebPush(key, auth, endpoint, message, version, info);
 
       resp.setStatus(HttpServletResponse.SC_OK);
+      resp.setContentType("application/json; charset=utf-8");
+      resp.setCharacterEncoding("UTF-8");
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(resp.getOutputStream(), "UTF-8"));
+      writer.write(result.toString());
+      writer.flush();
+      writer.close();
     } catch (JSONException e) {
       e.printStackTrace();
-      error(resp);
+      error(resp, "malformed and/or insufficient parameter(s)");
     }
   }
 }

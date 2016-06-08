@@ -42,7 +42,6 @@ import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
-import org.bouncycastle.util.encoders.Hex;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -189,8 +188,20 @@ public class WebPush {
     sendWebPush(key, auth, endpoint, payload, version, null);
   }
 
+  private static SecretKey generateSharedKey(ECPublicKey publicKey, ECPrivateKey privateKey) {
+    try {
+      KeyAgreement keyAgree = KeyAgreement.getInstance(keyAlgorithm, keyAlgorithmProvider);
+      keyAgree.init(privateKey);
+      keyAgree.doPhase(publicKey, true);
+      return keyAgree.generateSecret(encryptionAlgorithm);
+    } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidKeyException e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
   // conforms to draft-ietf-httpbis-encryption-encoding-(version)
-  public static void sendWebPush(String key, String auth, String endpoint, String payload, int version, JSONObject info) {
+  public static JSONObject sendWebPush(String key, String auth, String endpoint, String payload, int version, JSONObject info) {
     boolean encrypted = false;
     ByteBuffer output = null;
     SecretKey secretKey = null;
@@ -202,7 +213,7 @@ public class WebPush {
       random = SecureRandom.getInstance("NativePRNGNonBlocking");
     } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
-      return;
+      return new JSONObject().put("error", "cannot initialize SecureRandom");
     }
 
     byte[] salt = new byte[16];
@@ -220,15 +231,11 @@ public class WebPush {
         userPublicKey = importPublicKey(keyAlgorithm, key);
 
         // key agreement
-        KeyAgreement keyAgree = KeyAgreement.getInstance(keyAlgorithm, keyAlgorithmProvider);
-        keyAgree.init(localKeys.getPrivate());
-        keyAgree.doPhase(userPublicKey, true);
-        secretKey = keyAgree.generateSecret(encryptionAlgorithm);
+        secretKey = generateSharedKey(userPublicKey, (ECPrivateKey) localKeys.getPrivate());
       } catch (NoSuchAlgorithmException
           | NoSuchProviderException
           | InvalidAlgorithmParameterException
-          | InvalidKeySpecException
-          | InvalidKeyException e) {
+          | InvalidKeySpecException e) {
         e.printStackTrace();
       }
 
@@ -275,6 +282,8 @@ public class WebPush {
             }
             bufCEK.rewind();
             bufNonce.rewind();
+
+            // encryption with padding
             byte[] hashInfoKey = expandHKDF(prk, bufCEK, keyLength);
             byte[] hashInfoNonce = expandHKDF(prk, bufNonce, nonceLength);
             ByteBuffer input = ByteBuffer.wrap(payload.getBytes("UTF-8"));
@@ -300,6 +309,7 @@ public class WebPush {
         }
       }
     }
+    // post the push message (with the encrypted payload, if any)
     HttpURLConnection conn = null;
     URL url;
     try {
@@ -340,7 +350,7 @@ public class WebPush {
         String claim = Base64.getUrlEncoder().encodeToString(h.toString().getBytes()).replaceAll("=+$", "")
             + "." + Base64.getUrlEncoder().encodeToString(p.toString().getBytes()).replaceAll("=+$", "");
 
-        // create a signature by SHA-256 with ECDSA
+        // VAPID: create a signature by SHA-256 with ECDSA
         try {
           Signature signer = Signature.getInstance(signAlgorithm, keyAlgorithmProvider);
           signer.initSign(WebPushServlet.privateKey);
@@ -367,9 +377,6 @@ public class WebPush {
           asn1.position(pos);
           signature.put(asn1);
 
-          System.out.println(Hex.toHexString(asn1.array()));
-          System.out.println(Hex.toHexString(signature.array()));
-
           conn.setRequestProperty(
               "Crypto-Key",
               conn.getRequestProperty("Crypto-Key") + ";p256ecdsa="
@@ -377,7 +384,6 @@ public class WebPush {
           conn.setRequestProperty(
               "Authorization",
               "Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
-          System.out.println("Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
         } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidKeyException | SignatureException e) {
           e.printStackTrace();
         }
@@ -391,30 +397,32 @@ public class WebPush {
       }
       out.flush();
       out.close();
-      if(conn.getResponseCode() < HttpURLConnection.HTTP_BAD_REQUEST) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        String response = "";
+      int status = conn.getResponseCode();
+      StringBuffer response = new StringBuffer();
+      JSONObject result = new JSONObject().put("status", status);
+      if(status < HttpURLConnection.HTTP_BAD_REQUEST) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
-          response += buf;
+          response.append(buf);
         }
         reader.close();
-        conn.disconnect();
         System.out.println("======= Web Push Sent =======");
-        System.out.println(response);
+        System.out.println(response.toString());
       }
       else {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
-        String response = "";
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
-          response += buf;
+          response.append(buf);
         }
         reader.close();
-        conn.disconnect();
         System.out.println("======= Web Push Failed =======");
-        System.out.println(response);
+        System.out.println(response.toString());
       }
+      conn.disconnect();
+      result.put("response", response.toString());
+      return result;
     } catch (MalformedURLException e) {
       e.printStackTrace();
     } catch (IOException e) {
@@ -422,9 +430,10 @@ public class WebPush {
       if(conn != null)
         conn.disconnect();
     }
+    return new JSONObject().put("error", "internal server error");
   }
 
-  public static void sendPushViaGoogleCloudMessaging(String registrationID) {
+  public static JSONObject sendPushViaGoogleCloudMessaging(String registrationID) {
     HttpURLConnection conn = null;
     URL url;
 
@@ -440,30 +449,32 @@ public class WebPush {
       writer.write(json.toString());
       writer.flush();
       writer.close();
-      if(conn.getResponseCode() < HttpURLConnection.HTTP_BAD_REQUEST) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        String response = "";
+      int status = conn.getResponseCode();
+      StringBuffer response = new StringBuffer();
+      JSONObject result = new JSONObject().put("status", status);
+      if(status < HttpURLConnection.HTTP_BAD_REQUEST) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
-          response += buf;
+          response.append(buf);
         }
         reader.close();
-        conn.disconnect();
         System.out.println("======= GCM Push Sent =======");
-        System.out.println(response);
+        System.out.println(response.toString());
       }
       else {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
-        String response = "";
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
-          response += buf;
+          response.append(buf);
         }
         reader.close();
-        conn.disconnect();
         System.out.println("======= GCM Push Failed =======");
-        System.out.println(response);
+        System.out.println(response.toString());
       }
+      conn.disconnect();
+      result.put("response", response.toString());
+      return result;
     } catch (MalformedURLException e) {
       e.printStackTrace();
     } catch (IOException e) {
@@ -471,5 +482,6 @@ public class WebPush {
       if(conn != null)
         conn.disconnect();
     }
+    return new JSONObject().put("error", "internal server error");
   }
 }

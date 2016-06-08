@@ -52,3 +52,11 @@ dd {
 #status.subscribe-error::before {
 	content: attr(data-error);
 }
+
+:not(.error) .iferror {
+  display: none;
+}
+
+.error .emerror {
+  color: #f00;
+}

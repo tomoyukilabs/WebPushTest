@@ -43,6 +43,9 @@ function disablePushRequest() {
   _('endpoint').textContent = '';
   _('key').textContent = '';
   _('auth').textContent = '';
+  _('response').classList.remove('error');
+  _('statuscode').textContent = '';
+  _('detail').textContent = '';
 }
 
 function requestPushUnsubcription() {
@@ -150,6 +153,23 @@ function requestPushNotification() {
       method: 'POST',
       body: JSON.stringify(arg),
       headers: { 'Content-Type': 'application/json' }
+    }).then(resp => {
+      return resp.json();
+    }).then(json => {
+      if('error' in json) {
+        _('response').classList.add('error');
+        _('servererror').textContent = json.error;
+      }
+      else {
+        _('response').classList.remove('error');
+        _('servererror').textContent = '';
+      }
+      _('statuscode').textContent = json.status;
+      _('detail').textContent = json.response;
+    }, () => {
+      _('response').classList.add('error');
+      _('statuscode').textContent = '(N/A)';
+      _('servererror').textContent = 'malformed JSON returned';
     });
   }
 }
