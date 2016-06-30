@@ -219,7 +219,7 @@ public class WebPush {
     byte[] salt = new byte[16];
     random.nextBytes(salt);
 
-    if((key != null) && (payload != null) && (payload.length() > 0)) {
+    if((key != null) && (payload != null)) {
       // create a shared secret key for AES encryption
       
       try {

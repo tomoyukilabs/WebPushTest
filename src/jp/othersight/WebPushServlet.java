@@ -141,7 +141,7 @@ public class WebPushServlet extends HttpServlet {
       String endpoint = json.optString("endpoint");
       String key = getString(json, "key");
       String auth = getString(json, "auth");
-      String message = getString(json, "message");
+      String message = json.getString("message");
       JSONObject info = json.optJSONObject("jwt");
       int version = json.optInt("version", 0);
 
