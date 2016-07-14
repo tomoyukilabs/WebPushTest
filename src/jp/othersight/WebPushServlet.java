@@ -31,8 +31,7 @@ import org.json.JSONObject;
 @WebServlet(name="WebPushServlet", urlPatterns="/push/*")
 public class WebPushServlet extends HttpServlet {
   private static final String keyAlgorithm = "ECDSA";
-  public static ECPublicKey publicKey = null;
-  public static ECPrivateKey privateKey = null;
+  private static final String gcmServerKey = ""; // set your Google Cloud Messaging API key
 
   /**
    * 
@@ -41,7 +40,10 @@ public class WebPushServlet extends HttpServlet {
 
   public WebPushServlet() {
     Security.addProvider(new BouncyCastleProvider());
+    WebPush.setGcmServerKey(gcmServerKey);
     File file = new File("serverKey.json");
+    ECPrivateKey privateKey = null;
+    ECPublicKey publicKey = null;
     if(file.exists()) {
       try {
         StringBuffer buf = new StringBuffer();
@@ -51,15 +53,15 @@ public class WebPushServlet extends HttpServlet {
           buf.append(str);
         reader.close();
         JSONObject jwk = new JSONObject(buf.toString());
-        publicKey = WebPush.importPublicKey(keyAlgorithm, jwk.getString("x"), jwk.getString("y"));
-        privateKey = WebPush.importPrivateKey(keyAlgorithm, jwk.getString("d"));
+        WebPush.importPublicKeyForECDSA(keyAlgorithm, jwk.getString("x"), jwk.getString("y"));
+        WebPush.importPrivateKeyForECDSA(keyAlgorithm, jwk.getString("d"));
       } catch (IOException | JSONException | NoSuchAlgorithmException | NoSuchProviderException | InvalidKeySpecException e) {
         e.printStackTrace();
       }
     }
     else {
       try {
-        KeyPair keyPair = WebPush.generateKeyPair(keyAlgorithm);
+        KeyPair keyPair = WebPush.generateKeyPairForECDSA(keyAlgorithm);
         publicKey = (ECPublicKey) keyPair.getPublic();
         privateKey = (ECPrivateKey) keyPair.getPrivate();
         JSONObject jwk = new JSONObject();
@@ -108,6 +110,7 @@ public class WebPushServlet extends HttpServlet {
       throws ServletException, IOException {
     String path = req.getPathInfo();
     StringBuffer result = new StringBuffer();
+    ECPublicKey publicKey = WebPush.getPublicKey();
     if("/publicKey".equals(path) && (publicKey != null)) {
       result.append(Base64.getUrlEncoder().encodeToString(publicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
     }

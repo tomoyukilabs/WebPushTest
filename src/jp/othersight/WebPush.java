@@ -68,7 +68,22 @@ public class WebPush {
 
   public static final String GCM_URL = "https://android.googleapis.com/gcm/send";
   public static final String GCM_WEBPUSH_ENDPOINT = "https://gcm-http.googleapis.com/gcm";
-  public static final String GCM_SERVER_KEY = ""; // set your Google Cloud Messaging API key
+
+  private static String mGcmServerKey = "";
+  private static ECPrivateKey mPrivateKey = null;
+  private static ECPublicKey mPublicKey = null;
+
+  public static void setGcmServerKey(String key) {
+    mGcmServerKey = key;
+  }
+
+  public static ECPrivateKey getPrivateKey() {
+    return mPrivateKey;
+  }
+
+  public static ECPublicKey getPublicKey() {
+    return mPublicKey;
+  }
 
   private static byte[] extractHKDF(byte[] salt, byte[] key) {
     try {
@@ -148,11 +163,23 @@ public class WebPush {
     }
   }
 
+  public static KeyPair generateKeyPairForECDSA(String type) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
+    KeyPair keyPair = generateKeyPair(type);
+    mPrivateKey = (ECPrivateKey) keyPair.getPrivate();
+    mPublicKey = (ECPublicKey) keyPair.getPublic();
+    return keyPair;
+  }
+
   public static KeyPair generateKeyPair(String type) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
     ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance(type, keyAlgorithmProvider);
     keyGen.initialize(param);
     return keyGen.generateKeyPair();
+  }
+
+  public static ECPublicKey importPublicKeyForECDSA(String type, String x, String y) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    mPublicKey = importPublicKey(type, x, y);
+    return mPublicKey;
   }
 
   public static ECPublicKey importPublicKey(String type, String x, String y) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
@@ -166,6 +193,11 @@ public class WebPush {
     return (ECPublicKey) keyFactory.generatePublic(keySpec);
   }
 
+  public static ECPublicKey importPublicKeyForECDSA(String type, String q) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    mPublicKey = importPublicKey(type, q);
+    return mPublicKey;
+  }
+
   public static ECPublicKey importPublicKey(String type, String q) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
     ECParameterSpec param = ECNamedCurveTable.getParameterSpec(keyCurve);
     ECPublicKeySpec keySpec = new ECPublicKeySpec(
@@ -173,6 +205,11 @@ public class WebPush {
         param);
     KeyFactory keyFactory = KeyFactory.getInstance(type, keyAlgorithmProvider);
     return (ECPublicKey) keyFactory.generatePublic(keySpec);
+  }
+
+  public static ECPrivateKey importPrivateKeyForECDSA(String type, String d) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+    mPrivateKey = importPrivateKey(type, d);
+    return mPrivateKey;
   }
 
   public static ECPrivateKey importPrivateKey(String type, String d) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
@@ -329,7 +366,7 @@ public class WebPush {
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
 
       if(endpoint.startsWith(GCM_WEBPUSH_ENDPOINT) || endpoint.startsWith(GCM_URL))
-        conn.setRequestProperty("Authorization",  "key=" + GCM_SERVER_KEY);
+        conn.setRequestProperty("Authorization",  "key=" + mGcmServerKey);
 
       if(info != null) {
         // JWT Header
@@ -353,7 +390,7 @@ public class WebPush {
         // VAPID: create a signature by SHA-256 with ECDSA
         try {
           Signature signer = Signature.getInstance(signAlgorithm, keyAlgorithmProvider);
-          signer.initSign(WebPushServlet.privateKey);
+          signer.initSign(mPrivateKey);
           signer.update(claim.getBytes());
 
           // convert ASN.1 to JWS (i.e. concatenated R and S raw bytes)
@@ -363,7 +400,7 @@ public class WebPush {
 
           asn1.position(3);
           int l1 = (int) asn1.get();
-          
+
           pos = 4 + l1 - 32;
           asn1.limit(pos + 32);
           asn1.position(pos);
@@ -380,7 +417,7 @@ public class WebPush {
           conn.setRequestProperty(
               "Crypto-Key",
               conn.getRequestProperty("Crypto-Key") + ";p256ecdsa="
-              + Base64.getUrlEncoder().encodeToString(WebPushServlet.publicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
+              + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
           conn.setRequestProperty(
               "Authorization",
               "Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
@@ -442,7 +479,7 @@ public class WebPush {
       conn = (HttpURLConnection)url.openConnection();
       conn.setRequestMethod("POST");
       conn.setDoOutput(true);
-      conn.setRequestProperty("Authorization",  "key=" + GCM_SERVER_KEY);
+      conn.setRequestProperty("Authorization",  "key=" + mGcmServerKey);
       conn.setRequestProperty("Content-Type", "application/json");
       BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(conn.getOutputStream()));
       JSONObject json = new JSONObject().put("registration_ids", new JSONArray().put(registrationID));
