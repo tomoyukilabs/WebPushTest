@@ -3,6 +3,7 @@
 	<name>WebPushTest</name>
 	<comment></comment>
 	<projects>
+		<project>SessionServer</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

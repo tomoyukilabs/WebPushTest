@@ -31,7 +31,6 @@ import org.json.JSONObject;
 @WebServlet(name="WebPushServlet", urlPatterns="/push/*")
 public class WebPushServlet extends HttpServlet {
   private static final String keyAlgorithm = "ECDSA";
-  private static final String gcmServerKey = ""; // set your Google Cloud Messaging API key
 
   /**
    * 
@@ -40,15 +39,24 @@ public class WebPushServlet extends HttpServlet {
 
   public WebPushServlet() {
     Security.addProvider(new BouncyCastleProvider());
-    WebPush.setGcmServerKey(gcmServerKey);
+    BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getClassLoader().getResourceAsStream("gcmServerKey")));
+    StringBuffer buf = new StringBuffer();
+    String str;
+    try {
+      while((str = reader.readLine()) != null)
+        buf.append(str);
+      reader.close();
+      WebPush.setGcmServerKey(buf.toString().trim());
+    } catch (IOException e) {
+      System.out.println("warning: gcmServerKey not found");
+    }    
     File file = new File("serverKey.json");
     ECPrivateKey privateKey = null;
     ECPublicKey publicKey = null;
     if(file.exists()) {
       try {
-        StringBuffer buf = new StringBuffer();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
-        String str;
+        buf = new StringBuffer();
+        reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
         while((str = reader.readLine()) != null)
           buf.append(str);
         reader.close();
