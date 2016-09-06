@@ -420,7 +420,7 @@ public class WebPush {
               + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
           conn.setRequestProperty(
               "Authorization",
-              "Bearer " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
+              "WebPush " + claim + "." + Base64.getUrlEncoder().encodeToString(signature.array()).replaceAll("=+$", ""));
         } catch (NoSuchAlgorithmException | NoSuchProviderException | InvalidKeyException | SignatureException e) {
           e.printStackTrace();
         }
