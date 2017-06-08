@@ -138,8 +138,11 @@ function requestPushNotification() {
       arg.key = encodeBase64URL(subscription.getKey('p256dh'));
       try {
         arg.auth = encodeBase64URL(subscription.getKey('auth'));
-        arg.version = navigator.userAgent.match(/Firefox\/(\d+)/) ? ((parseInt(RegExp.$1) >= 46) ? 1 : 0) :
-          ((navigator.userAgent.match(/Chrome\/(\d+)/) ? ((parseInt(RegExp.$1) >= 50) ? 1 : 0) : 0))
+        const useAesgcm = navigator.userAgent.match(/Firefox\/(\d+)/) ? ((parseInt(RegExp.$1) >= 46) ? 1 : 0) :
+          ((navigator.userAgent.match(/Chrome\/(\d+)/) ? ((parseInt(RegExp.$1) >= 50) ? 1 : 0) : 0));
+        const encodings = PushManager.supportedContentEncodings;
+        const idx = encodings instanceof Array ? encodings.indexOf('aes128gcm') : -1;
+        arg.contentEncoding = idx >= 0 ? 'aes128gcm' : (useAesgcm ? 'aesgcm' : 'aesgcm128');          
       } catch (e) {
       }
     }
