@@ -42,7 +42,6 @@ import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
-import org.bouncycastle.util.encoders.Hex;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -439,7 +438,6 @@ public class WebPush {
   }
 
   public static JSONObject sendWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, JSONObject info) {
-    System.out.println("Content-Encoding: " + contentEncoding);
     return "aes128gcm".equals(contentEncoding) ?
         sendAes128GcmWebPush(key, auth, endpoint, payload, contentEncoding, info) :
         sendLegacyWebPush(key, auth, endpoint, payload, contentEncoding, info);
@@ -536,8 +534,6 @@ public class WebPush {
       out.write(output.array());
       out.flush();
       out.close();
-      System.out.println(Hex.toHexString(header.array()));
-      System.out.println(Hex.toHexString(output.array()));
 
       int status = conn.getResponseCode();
       StringBuffer response = new StringBuffer();
