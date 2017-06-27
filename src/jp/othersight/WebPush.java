@@ -177,12 +177,10 @@ public class WebPush {
       cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(k, encryptionAlgorithm), iv);
 
       final int size = buf.limit() - buf.position();
-      final boolean usePadding = (size == 0 && counter == 0);
-      ByteBuffer input = ByteBuffer.allocate(size + 1 + (usePadding ? 1 : 0));
+      ByteBuffer input = ByteBuffer.allocate(size + 2);
       input.put(buf);
       input.put(delimiter);
-      if(usePadding)
-        input.put((byte)0);
+      input.put((byte)0);
       byte[] buffer = new byte[cipher.getOutputSize(input.capacity())];
       int l = cipher.update(input.array(), 0, input.capacity(), buffer);
       byte[] remaining = cipher.doFinal();
@@ -238,7 +236,7 @@ public class WebPush {
   private static ByteBuffer encrypt(String info, byte[] prk, String payload) throws GeneralSecurityException {
     byte[] hashInfoKey = generateCEK(info, prk);
     byte[] hashInfoNonce = generateNonce(prk);
-    final int overhead = tagLength + 1 + (payload.length() == 0 ? 1 : 0); // tag length (=16) + delimiter (=1) + padding (for empty message)
+    final int overhead = tagLength + 2; // tag length (=16) + delimiter (=1) + padding (one or more bytes of 0x00)
 
     try {
       ByteBuffer input = ByteBuffer.wrap(payload.getBytes("UTF-8"));
@@ -456,7 +454,7 @@ public class WebPush {
     // the maximum payload length supported by push services is 3992 bytes
     // (= 4096 - 86 (header) - 2 (padding) - 16 (expansion of AEAD_AES_128_GCM))
     if(payload.length() > 3992)
-      return new JSONObject().put("error", "payload is too long (> 3996 bytes)");
+      return new JSONObject().put("error", "payload is too long (> 3992 bytes)");
 
     byte[] salt = generateSalt();
     if(salt == null)

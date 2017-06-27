@@ -3,7 +3,7 @@
   <groupId>jp.othersight</groupId>
   <artifactId>WebPushTest</artifactId>
   <packaging>war</packaging>
-  <version>20170607_r1</version>
+  <version>20170627_r1</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
     <plugins>
@@ -27,7 +27,7 @@
       <plugin>
 			  <groupId>org.eclipse.jetty</groupId>
 			  <artifactId>jetty-maven-plugin</artifactId>
-			  <version>9.4.3.v20170317</version>
+			  <version>9.4.6.v20170531</version>
 			  <configuration>
 			    <scanIntervalSeconds>10</scanIntervalSeconds>
 			    <webApp>
@@ -42,7 +42,7 @@
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-server</artifactId>
-      <version>9.4.3.v20170317</version>
+      <version>9.4.6.v20170531</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
