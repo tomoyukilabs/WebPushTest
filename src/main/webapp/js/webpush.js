@@ -212,6 +212,8 @@ function init() {
       setAuthType({ currentTarget: { value: authType }});
       _('auth' + authType).checked = true;
     }
+    else
+      setAuthType({ currentTarget: { value: _('authvapid').checked ? 'vapid' : 'gcm' }});
     _('subscribe').addEventListener('click', togglePushSubscription, false);
     _('push').addEventListener('click', requestPushNotification, false);
     _('authvapid').addEventListener('change', setAuthType, false);
