@@ -4,6 +4,7 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
@@ -505,7 +506,7 @@ public class WebPush {
       conn = (HttpURLConnection)url.openConnection();
       conn.setRequestMethod("POST");
       conn.setDoOutput(true);
-      
+
       conn.setRequestProperty("Content-Length", String.format("%d", header.capacity() + output.capacity()));
       conn.setRequestProperty("Content-Encoding", encoding_aes128gcm);
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
@@ -515,8 +516,7 @@ public class WebPush {
         String jwt = generateJWT(info);
         conn.setRequestProperty(
             "Crypto-Key",
-            conn.getRequestProperty("Crypto-Key") + ";p256ecdsa="
-            + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
+            "p256ecdsa=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
         conn.setRequestProperty("Authorization", "WebPush " + jwt);
         /*
         // VAPID: create a signature by SHA-256 with ECDSA (draft-ietf-webpush-vapid-02)
@@ -536,7 +536,8 @@ public class WebPush {
       int status = conn.getResponseCode();
       StringBuffer response = new StringBuffer();
       JSONObject result = new JSONObject().put("status", status);
-      if(status < HttpURLConnection.HTTP_BAD_REQUEST) {
+
+      try {
         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
@@ -546,13 +547,19 @@ public class WebPush {
         System.out.println("======= Web Push Sent =======");
         System.out.println(response.toString());
       }
-      else {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), "UTF-8"));
-        String buf;
-        while((buf = reader.readLine()) != null) {
-          response.append(buf);
+      catch(IOException e) {
+        InputStream in = conn.getErrorStream();
+        if(in != null) {
+          BufferedReader reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+          String buf;
+          while((buf = reader.readLine()) != null) {
+            response.append(buf);
+          }
+          reader.close();
         }
-        reader.close();
+        else {
+          response.append("HTTP response error code: " + status);
+        }
         System.out.println("======= Web Push Failed =======");
         System.out.println(response.toString());
       }
@@ -642,9 +649,9 @@ public class WebPush {
         conn.setRequestProperty("Content-Type", "application/octet-stream");
         conn.setRequestProperty("Content-Length", String.format("%d", output.capacity()));
         conn.setRequestProperty((auth != null) ? "Crypto-Key" : "Encryption-Key",
-            "keyid=p256dh;dh=" + Base64.getUrlEncoder().encodeToString(keys.getLocalPublicKey().getQ().getEncoded(false)).replaceAll("=+$", ""));
+            "dh=" + Base64.getUrlEncoder().encodeToString(keys.getLocalPublicKey().getQ().getEncoded(false)).replaceAll("=+$", ""));
         conn.setRequestProperty("Encryption",
-            "keyid=p256dh;salt=" + Base64.getUrlEncoder().encodeToString(salt).replaceAll("=+$", ""));
+            "salt=" + Base64.getUrlEncoder().encodeToString(salt).replaceAll("=+$", ""));
         conn.setRequestProperty("Content-Encoding", contentEncoding);
       }
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
@@ -673,7 +680,7 @@ public class WebPush {
       int status = conn.getResponseCode();
       StringBuffer response = new StringBuffer();
       JSONObject result = new JSONObject().put("status", status);
-      if(status < HttpURLConnection.HTTP_BAD_REQUEST) {
+      try {
         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         String buf;
         while((buf = reader.readLine()) != null) {
@@ -683,13 +690,18 @@ public class WebPush {
         System.out.println("======= Web Push Sent =======");
         System.out.println(response.toString());
       }
-      else {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), "UTF-8"));
-        String buf;
-        while((buf = reader.readLine()) != null) {
-          response.append(buf);
+      catch(IOException e) {
+        InputStream in = conn.getErrorStream();
+        if(in != null) {
+          BufferedReader reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+          String buf;
+          while((buf = reader.readLine()) != null) {
+            response.append(buf);
+          }
+          reader.close();
         }
-        reader.close();
+        else
+          response.append("HTTP response error code: " + status);
         System.out.println("======= Web Push Failed =======");
         System.out.println(response.toString());
       }
