@@ -519,9 +519,7 @@ public class WebPush {
         String jwt = generateJWT(info);
 
         switch (vapidVersion) {
-        // draft-ietf-webpush-vapid-01
         case VAPID_RFC8292:
-          // VAPID: create a signature by SHA-256 with ECDSA (RFC 8292)
           conn.setRequestProperty(
               "Authorization",
               "vapid t=" + jwt + ", k=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
