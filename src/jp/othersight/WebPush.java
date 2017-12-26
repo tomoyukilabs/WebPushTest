@@ -73,6 +73,9 @@ public class WebPush {
   public static final String GCM_URL = "https://android.googleapis.com/gcm/send";
   public static final String GCM_WEBPUSH_ENDPOINT = "https://gcm-http.googleapis.com/gcm";
 
+  public static final int VAPID_DRAFT_IETF_WEBPUSH_VAPID_01 = 0;
+  public static final int VAPID_RFC8292 = 1;
+
   private static String mGcmServerKey = "";
   private static ECPrivateKey mPrivateKey = null;
   private static ECPublicKey mPublicKey = null;
@@ -351,8 +354,8 @@ public class WebPush {
     return (ECPrivateKey) keyFactory.generatePrivate(keySpec);
   }
 
-  public static void sendWebPush(String key, String auth, String endpoint, String payload, String contentEncoding) {
-    sendWebPush(key, auth, endpoint, payload, contentEncoding, null);
+  public static void sendWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, int vapidVersion) {
+    sendWebPush(key, auth, endpoint, payload, contentEncoding, null, vapidVersion);
   }
 
   private static SecretKey generateSharedKey(ECPublicKey publicKey, ECPrivateKey privateKey) throws GeneralSecurityException {
@@ -436,14 +439,14 @@ public class WebPush {
     public ECPublicKey getUserPublicKey() { return userPublicKey; };
   }
 
-  public static JSONObject sendWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, JSONObject info) {
+  public static JSONObject sendWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, JSONObject info, int vapidVersion) {
     return "aes128gcm".equals(contentEncoding) ?
-        sendAes128GcmWebPush(key, auth, endpoint, payload, contentEncoding, info) :
+        sendAes128GcmWebPush(key, auth, endpoint, payload, contentEncoding, info, vapidVersion) :
         sendLegacyWebPush(key, auth, endpoint, payload, contentEncoding, info);
   }
 
   // "aes128gcm" content encoding
-  public static JSONObject sendAes128GcmWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, JSONObject info) {
+  public static JSONObject sendAes128GcmWebPush(String key, String auth, String endpoint, String payload, String contentEncoding, JSONObject info, int vapidVersion) {
     ByteBuffer header = ByteBuffer.allocate(16 + 4 + 1 + 65);
     ByteBuffer output = null;
     Keys keys = null;
@@ -512,19 +515,24 @@ public class WebPush {
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
 
       if(info != null) {
-        // VAPID: create a signature by SHA-256 with ECDSA (draft-ietf-webpush-vapid-01)
+        // VAPID: create a signature by SHA-256 with ECDSA
         String jwt = generateJWT(info);
-        conn.setRequestProperty(
-            "Crypto-Key",
-            "p256ecdsa=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
-        conn.setRequestProperty("Authorization", "WebPush " + jwt);
-        /*
-        // VAPID: create a signature by SHA-256 with ECDSA (draft-ietf-webpush-vapid-02)
-        String jwt = generateJWT(info);
-        conn.setRequestProperty(
-            "Authorization",
-            "vapid t=" + jwt + ", k=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
-        */
+
+        switch (vapidVersion) {
+        // draft-ietf-webpush-vapid-01
+        case VAPID_RFC8292:
+          // VAPID: create a signature by SHA-256 with ECDSA (RFC 8292)
+          conn.setRequestProperty(
+              "Authorization",
+              "vapid t=" + jwt + ", k=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
+          break;
+        case VAPID_DRAFT_IETF_WEBPUSH_VAPID_01:
+          conn.setRequestProperty(
+              "Crypto-Key",
+              "p256ecdsa=" + Base64.getUrlEncoder().encodeToString(mPublicKey.getQ().getEncoded(false)).replaceAll("=+$", ""));
+          conn.setRequestProperty("Authorization", "WebPush " + jwt);
+          break;
+        }
       }
 
       BufferedOutputStream out = new BufferedOutputStream(conn.getOutputStream());

@@ -1,5 +1,9 @@
 'use strict';
 
+if(navigator.userAgent.match(/Firefox\/(\d+)/) && window.PushManager && !PushManager.supportedContentEncodings) {
+  PushManager.supportedContentEncodings = (parseInt(RegExp.$1) >= 55) ? ['aes128gcm', 'aesgcm'] : ['aesgcm'];
+}
+
 let _ = function(id) { return document.getElementById(id); }
 
 let subscription = null;
@@ -151,6 +155,8 @@ function requestPushNotification() {
         aud: new URL(subscription.endpoint).origin,
         sub: location.href
       };
+      // 0: draft-ietf-webpush-vapid-01, 1: RFC 8292
+      arg.vapidVersion = navigator.userAgent.match(/Firefox/) ? 1 : 0;
     }
     fetch('./push', {
       method: 'POST',

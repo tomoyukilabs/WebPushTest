@@ -154,6 +154,7 @@ public class WebPushServlet extends HttpServlet {
       String auth = getString(json, "auth");
       String message = json.getString("message");
       JSONObject info = json.optJSONObject("jwt");
+      int vapidVersion = json.optInt("vapidVersion",  WebPush.VAPID_DRAFT_IETF_WEBPUSH_VAPID_01);
       String contentEncoding = json.optString("contentEncoding");
 
       if("".equals(endpoint)) {
@@ -176,11 +177,12 @@ public class WebPushServlet extends HttpServlet {
               endpoint.replaceAll("^" + WebPush.GCM_URL, WebPush.GCM_WEBPUSH_ENDPOINT),
               message,
               contentEncoding,
-              info);
+              info,
+              vapidVersion);
       }
       // Firefox 44+: Web Push via Mozilla's AutoPush Endpoint
       else
-        result = WebPush.sendWebPush(key, auth, endpoint, message, contentEncoding, info);
+        result = WebPush.sendWebPush(key, auth, endpoint, message, contentEncoding, info, vapidVersion);
 
       resp.setStatus(HttpServletResponse.SC_OK);
       resp.setContentType("application/json; charset=utf-8");

@@ -3,7 +3,7 @@
   <groupId>jp.othersight</groupId>
   <artifactId>WebPushTest</artifactId>
   <packaging>war</packaging>
-  <version>20171221_r1</version>
+  <version>20171226_r1</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
     <plugins>
