@@ -156,7 +156,10 @@ function requestPushNotification() {
         sub: location.href
       };
       // 0: draft-ietf-webpush-vapid-01, 1: RFC 8292
-      arg.vapidVersion = navigator.userAgent.match(/Firefox/) ? 1 : 0;
+      arg.vapidVersion = (arg.contentEncoding === 'aes128gcm') ? 1 : 0;
+      // Workaround for RFC 8292 support on FCM; see https://github.com/web-push-libs/web-push/issues/278#issuecomment-356783840
+      if(arg.vapidVersion === 1)
+        arg.endpoint = arg.endpoint.replace('fcm/send', 'wp');
     }
     fetch('./push', {
       method: 'POST',

@@ -510,6 +510,7 @@ public class WebPush {
       conn.setRequestMethod("POST");
       conn.setDoOutput(true);
 
+      conn.setRequestProperty("Content-Type", "application/octet-stream");
       conn.setRequestProperty("Content-Length", String.format("%d", header.capacity() + output.capacity()));
       conn.setRequestProperty("Content-Encoding", encoding_aes128gcm);
       conn.setRequestProperty("TTL",  String.format("%d",  2*24*60*60)); // 2 days in second
@@ -564,9 +565,14 @@ public class WebPush {
           reader.close();
         }
         else {
-          response.append("HTTP response error code: " + status);
+          response.append("");
         }
         System.out.println("======= Web Push Failed =======");
+        System.out.println(conn.getHeaderField(null));
+        for(String i : conn.getHeaderFields().keySet()) {
+          if(i != null)
+            System.out.println(i + ": " + conn.getHeaderField(i));
+        }
         System.out.println(response.toString());
       }
       conn.disconnect();
@@ -707,8 +713,13 @@ public class WebPush {
           reader.close();
         }
         else
-          response.append("HTTP response error code: " + status);
+          response.append("");
         System.out.println("======= Web Push Failed =======");
+        System.out.println(conn.getHeaderField(null));
+        for(String i : conn.getHeaderFields().keySet()) {
+          if(i != null)
+            System.out.println(i + ": " + conn.getHeaderField(i));
+        }
         System.out.println(response.toString());
       }
       conn.disconnect();
