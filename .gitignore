@@ -1,4 +1,5 @@
 .DS_Store
+.settings/
 /target/
 /bin/
 /src/main/resources/gcmServerKey
